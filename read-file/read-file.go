@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"log"
 	"os"
+	"strings"
 )
 
 func ReadFile(fileName string) (content []string, err error) {
@@ -37,4 +38,25 @@ func ReadFile(fileName string) (content []string, err error) {
 	}
 	return
 
+}
+func ReadRepo(fileTree []string)(warnings []string){
+	for _,filePath:= range fileTree{
+		dir,err:= os.Stat(filePath)
+	
+		if dir.IsDir() || strings.Contains(filePath,".git") {
+         continue 
+		}
+    fileContent,err:=ReadFile(filePath)
+    if err!=nil{
+    	log.Println("can't read the file",filePath)
+    }
+
+    for _,word:= range fileContent{
+         if strings.Contains(word,"public_key") || strings.Contains(word, "private_key"){
+             warnings=append(warnings,"SECRET_KEY found at ",filePath)
+         }  
+    }
+	}
+
+	return
 }
