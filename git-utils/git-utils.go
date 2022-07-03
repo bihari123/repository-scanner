@@ -1,13 +1,20 @@
 package gitutils
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
+
+	"github.com/google/go-github/github"
+	"golang.org/x/oauth2"
 )
 
 func GitClone(url string) (folderName string) {
@@ -67,4 +74,79 @@ func exists(path string) (bool) {
     }
     
     return false
+}
+
+func GitAuthClient(token string)*github.Client{
+	ctx := context.Background()
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: token},
+	)
+	tc := oauth2.NewClient(ctx, ts)
+
+	client := github.NewClient(tc)
+	fmt.Println("client :",client)
+	return client 
+}
+
+func JsonPrettyPrint(in string) string {
+    var out bytes.Buffer
+    err := json.Indent(&out, []byte(in), "", "\t")
+    if err != nil {
+        return in
+    }
+    return out.String()
+}
+
+
+func GetGoString(v interface{}) string {
+    return getGoString(reflect.ValueOf(v))
+}
+
+func getGoString(v reflect.Value) string {
+    switch v.Kind() {
+    case reflect.Invalid:
+        return "nil"
+    case reflect.Struct:
+        t := v.Type()
+        out := getTypeString(t) + "{"
+        for i := 0; i < v.NumField(); i++ {
+            if i > 0 {
+                out += ", "
+            }
+            fieldValue := v.Field(i)
+            field := t.Field(i)
+            out += fmt.Sprintf("%s: %s", field.Name, getGoString(fieldValue))
+        }
+        out += "}"
+        return out
+    case reflect.Interface, reflect.Ptr:
+        if v.IsZero() {
+            return fmt.Sprintf("(%s)(nil)", getTypeString(v.Type()))
+        }
+        return "&" + getGoString(v.Elem())
+    case reflect.Slice:
+        out := getTypeString(v.Type())
+        if v.IsZero() {
+            out += "(nil)"
+        } else {
+            out += "{"
+            for i := 0; i < v.Len(); i++ {
+                if i > 0 {
+                    out += ", "
+                }
+                out += getGoString(v.Index(i))
+            }
+            out += "}"
+        }
+        return out
+    default:
+        return fmt.Sprintf("%#v", v)
+    }
+}
+
+func getTypeString(t reflect.Type) string {
+    if t.PkgPath() == "main" {
+        return t.Name()
+    }
+    return t.String()
 }
